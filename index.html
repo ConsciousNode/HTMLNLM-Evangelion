@@ -1,0 +1,579 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HTMLNLM Evangelion — ConsciousNode SoftWorks</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600&family=Space+Mono:wght@400;700&display=swap');
+
+  :root {
+    --bg:      #06080c;
+    --bg2:     #0d1117;
+    --bg3:     #161b22;
+    --border:  rgba(255,255,255,0.08);
+    --accent:  #00d4ff;
+    --accent2: #7c5cbf;
+    --accent3: #f97316;
+    --green:   #22c55e;
+    --text:    #e6edf3;
+    --muted:   rgba(230,237,243,0.55);
+    --dim:     rgba(230,237,243,0.25);
+  }
+
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Space Grotesk', sans-serif;
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  /* ── HEADER ── */
+  header {
+    border-bottom: 1px solid var(--border);
+    padding: 0 40px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    background: rgba(6,8,12,0.92);
+    backdrop-filter: blur(12px);
+    z-index: 100;
+  }
+
+  .logo {
+    font-family: 'Space Mono', monospace;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+  }
+
+  .logo span { color: var(--dim); font-weight: 400; }
+
+  nav { display: flex; gap: 28px; }
+  nav a {
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted);
+    text-decoration: none;
+    transition: color 0.15s;
+  }
+  nav a:hover { color: var(--text); }
+
+  /* ── HERO ── */
+  .hero {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 96px 40px 80px;
+    text-align: center;
+  }
+
+  .hero-eyebrow {
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 20px;
+  }
+
+  h1 {
+    font-size: clamp(2.4rem, 6vw, 4rem);
+    font-weight: 600;
+    line-height: 1.15;
+    letter-spacing: -0.02em;
+    margin-bottom: 20px;
+  }
+
+  h1 em {
+    font-style: normal;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+  }
+
+  .hero-sub {
+    font-size: 1.1rem;
+    color: var(--muted);
+    max-width: 600px;
+    margin: 0 auto 40px;
+    font-weight: 300;
+  }
+
+  .hero-buttons {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+  }
+
+  .btn-primary {
+    background: var(--accent);
+    color: #000;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: opacity 0.15s;
+    display: inline-block;
+  }
+  .btn-primary:hover { opacity: 0.85; }
+
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 400;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 12px 28px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    cursor: pointer;
+    text-decoration: none;
+    transition: border-color 0.15s, color 0.15s;
+    display: inline-block;
+  }
+  .btn-secondary:hover { border-color: var(--accent); color: var(--accent); }
+
+  /* ── BADGES ── */
+  .badges {
+    display: flex;
+    gap: 8px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 40px 0 0;
+  }
+
+  .badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 4px;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .badge-phase { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.25); }
+  .badge-zero  { background: rgba(34,197,94,0.12);  color: var(--green);  border: 1px solid rgba(34,197,94,0.25); }
+  .badge-mit   { background: rgba(124,92,191,0.12); color: #a78bfa;       border: 1px solid rgba(124,92,191,0.25); }
+  .badge-html  { background: rgba(249,115,22,0.12); color: var(--accent3); border: 1px solid rgba(249,115,22,0.25); }
+  .badge-omni  { background: rgba(255,255,255,0.05); color: var(--dim);   border: 1px solid var(--border); }
+
+  /* ── DIVIDER ── */
+  .section-divider {
+    border: none;
+    border-top: 1px solid var(--border);
+    margin: 0;
+  }
+
+  /* ── SECTION ── */
+  .section {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 72px 40px;
+  }
+
+  .section-label {
+    font-family: 'Space Mono', monospace;
+    font-size: 10px;
+    letter-spacing: 0.25em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 16px;
+  }
+
+  h2 {
+    font-size: 1.75rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    margin-bottom: 32px;
+  }
+
+  /* ── COMPONENT GRID ── */
+  .component-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 12px;
+  }
+
+  .component-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+    transition: border-color 0.15s;
+  }
+
+  .component-card:hover { border-color: rgba(0,212,255,0.3); }
+
+  .comp-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 8px;
+    letter-spacing: 0.05em;
+  }
+
+  .comp-desc {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  /* ── COHERENCE LOOP ── */
+  .loop-block {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 28px 32px;
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    line-height: 2;
+    color: var(--muted);
+  }
+
+  .loop-block .hl { color: var(--accent); }
+  .loop-block .hl2 { color: var(--green); }
+  .loop-block .hl3 { color: #f97316; }
+  .loop-block .arrow { color: var(--dim); }
+
+  /* ── STATS ── */
+  .stats-row {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 12px;
+    margin-bottom: 48px;
+  }
+
+  .stat-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 20px;
+    text-align: center;
+  }
+
+  .stat-num {
+    font-family: 'Space Mono', monospace;
+    font-size: 1.6rem;
+    font-weight: 700;
+    color: var(--accent);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--dim);
+  }
+
+  /* ── CREDITS ── */
+  .credits-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 12px;
+  }
+
+  .credit-card {
+    background: var(--bg2);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 18px 20px;
+  }
+
+  .credit-name {
+    font-family: 'Space Mono', monospace;
+    font-size: 12px;
+    font-weight: 700;
+    color: var(--accent);
+    margin-bottom: 6px;
+  }
+
+  .credit-role {
+    font-size: 12px;
+    color: var(--muted);
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  /* ── ROADMAP ── */
+  .roadmap-item {
+    display: flex;
+    gap: 16px;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .roadmap-item:last-child { border-bottom: none; }
+
+  .roadmap-badge {
+    font-family: 'Space Mono', monospace;
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 3px 8px;
+    border-radius: 3px;
+    flex-shrink: 0;
+    height: fit-content;
+    margin-top: 2px;
+  }
+
+  .rb-live   { background: rgba(34,197,94,0.15); color: var(--green); border: 1px solid rgba(34,197,94,0.3); }
+  .rb-active { background: rgba(0,212,255,0.12); color: var(--accent); border: 1px solid rgba(0,212,255,0.25); }
+  .rb-next   { background: rgba(255,255,255,0.05); color: var(--dim); border: 1px solid var(--border); }
+
+  .roadmap-text h4 {
+    font-size: 14px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  .roadmap-text p {
+    font-size: 13px;
+    color: var(--muted);
+    font-weight: 300;
+  }
+
+  /* ── FOOTER ── */
+  footer {
+    border-top: 1px solid var(--border);
+    padding: 32px 40px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+    font-family: 'Space Mono', monospace;
+    font-size: 11px;
+    color: var(--dim);
+  }
+
+  footer a { color: var(--dim); text-decoration: none; }
+  footer a:hover { color: var(--muted); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">HTMLNLM <span>·</span> Evangelion</div>
+  <nav>
+    <a href="#components">Components</a>
+    <a href="#architecture">Architecture</a>
+    <a href="#credits">Credits</a>
+    <a href="https://github.com/ConsciousNode/HTMLNLM-Evangelion">GitHub</a>
+  </nav>
+</header>
+
+<div class="hero">
+  <div class="hero-eyebrow">ConsciousNode SoftWorks · Phase 6</div>
+  <h1>Omnimodal neural architecture.<br><em>In a browser tab.</em></h1>
+  <p class="hero-sub">Complete pretraining, alignment, and inference pipeline — text, vision, audio, spatial — running on any device. No server. No Python. No GPU. One file.</p>
+  <div class="hero-buttons">
+    <a href="evangelion.html" class="btn-primary">▶ Launch Evangelion</a>
+    <a href="https://github.com/ConsciousNode/HTMLNLM-Evangelion" class="btn-secondary">View Source</a>
+  </div>
+  <div class="badges">
+    <span class="badge badge-phase">Phase 6</span>
+    <span class="badge badge-zero">Zero Dependencies</span>
+    <span class="badge badge-mit">MIT License</span>
+    <span class="badge badge-html">Single HTML File</span>
+    <span class="badge badge-omni">Omnimodal</span>
+    <span class="badge badge-omni">.evapip Export</span>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<div class="section">
+  <div class="stats-row">
+    <div class="stat-card">
+      <span class="stat-num">4</span>
+      <span class="stat-label">Modalities</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">0</span>
+      <span class="stat-label">Dependencies</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">1</span>
+      <span class="stat-label">HTML File</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">b1.58</span>
+      <span class="stat-label">BitNet Weights</span>
+    </div>
+    <div class="stat-card">
+      <span class="stat-num">∞</span>
+      <span class="stat-label">Context (recurrent)</span>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<div class="section" id="components">
+  <div class="section-label">Architecture</div>
+  <h2>What's inside</h2>
+  <div class="component-grid">
+    <div class="component-card">
+      <div class="comp-name">RWKVv7Block</div>
+      <div class="comp-desc">Recurrent backbone with BitNet b1.58 ternary quantization and PoST (Position-Adaptive Spectral Tapering) decay gates. No attention, no KV cache.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">ModRWKVAdapter</div>
+      <div class="comp-desc">Per-modality bridge: LittleBit2 projection, P-adic routing loss, EMA temporal state. Each modality enters the backbone through its own learned gate.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">ElasticTok</div>
+      <div class="comp-desc">Visual tokenizer with temporal delta compression. Only encodes changed patches — static regions cost nothing. Efficient on video and live camera.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">SpikeVox</div>
+      <div class="comp-desc">Audio encoder using Leaky Integrate-and-Fire neurons. Event-driven, spectrogram-free. Encodes audio as sparse spike trains — biologically plausible, computationally efficient.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">SheafMemory</div>
+      <div class="comp-desc">Topological memory with hyperbolic Poincaré embedding and H¹(ℱ) coboundary norm. Detects contradictions between modalities geometrically, not heuristically.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">BooleanPhaseDynamics</div>
+      <div class="comp-desc">Semantic thermodynamics: T* temperature, Maxwell's Angel sincerity filter, phase negation (L + L → T). Drives the self-correction loop.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">AutopoieticOptimizer</div>
+      <div class="comp-desc">Fires when T* exceeds threshold. Updates adapter scale vectors and restriction maps via coboundary gradient. The model rewrites itself to restore coherence.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">RIFT Endospace</div>
+      <div class="comp-desc">Holographic fractal state visualization: SDF point cloud, generational fractal mapping, diffeomorphic stability tracking. Watch the model think.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">MuonOptimizer</div>
+      <div class="comp-desc">Quintic Newton-Schulz orthogonalization for training. Keeps weight matrices well-conditioned without expensive decompositions.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">GRPO Alignment</div>
+      <div class="comp-desc">Group Relative Policy Optimization. Configurable reward functions. No reference model required — groups of completions are compared directly.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">JuntoNode</div>
+      <div class="comp-desc">Swarm orchestration for distributed training. Multiple Evangelion instances coordinate gradient sharing across a local network.</div>
+    </div>
+    <div class="component-card">
+      <div class="comp-name">.evapip Format</div>
+      <div class="comp-desc">Full checkpoint format: RWKV weights, adapter scales, restriction maps, optimizer state. Forward-compatible with EvaROSA (RWKV-8 ROSA integration, in development).</div>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<div class="section" id="architecture">
+  <div class="section-label">Self-Correction</div>
+  <h2>The coherence loop</h2>
+  <div class="loop-block">
+    <span class="hl">perception</span> <span class="arrow">→</span> ModRWKVAdapter <span class="arrow">→</span> RWKVv7Block <span class="arrow">→</span> <span class="hl">SheafMemory</span><br>
+    &nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↳ if</span> H¹(ℱ) &gt; threshold: <span class="hl2">BooleanPhaseDynamics</span> detects contradiction<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↳ if</span> T* &gt; threshold: <span class="hl2">Maxwell's Angel</span> activates<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↳</span> <span class="hl3">AutopoieticOptimizer</span> fires: updates adapters + restriction maps<br>
+    &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="arrow">↳</span> coherence restored
+  </div>
+  <p style="color:var(--muted);font-weight:300;margin-top:20px;font-size:14px;">Cross-modal consistency is monitored continuously via the sheaf coboundary norm. When modalities contradict each other — vision saying one thing, text another — the contradiction propagates through the topology until the AutopoieticOptimizer fires and the adapters self-correct. This runs during inference, not just training.</p>
+</div>
+
+<hr class="section-divider">
+
+<div class="section">
+  <div class="section-label">Roadmap</div>
+  <h2>What's next</h2>
+
+  <div class="roadmap-item">
+    <span class="roadmap-badge rb-live">Live</span>
+    <div class="roadmap-text">
+      <h4>HTMLNLM Evangelion Phase 6</h4>
+      <p>Complete omnimodal architecture with SheafMemory, BooleanPhaseDynamics, AutopoieticOptimizer, RIFT Endospace. Single HTML file. Zero dependencies.</p>
+    </div>
+  </div>
+
+  <div class="roadmap-item">
+    <span class="roadmap-badge rb-active">In Development</span>
+    <div class="roadmap-text">
+      <h4>EvaROSA</h4>
+      <p>RWKV-8 ROSA (Rapid Online Suffix Automaton) integration. Neurosymbolic inner monologue channel constrained by SheafMemory topology. The symbolic self-talk becomes a sheaf vertex — the model cannot gaslight itself about what it has perceived. New platform, new architecture, new format: <code style="font-family:Space Mono,monospace;font-size:11px;color:var(--accent);">.piprosa</code>.</p>
+    </div>
+  </div>
+
+  <div class="roadmap-item">
+    <span class="roadmap-badge rb-next">Planned</span>
+    <div class="roadmap-text">
+      <h4>Brymar College Integration</h4>
+      <p>Load Brymar College-trained RWKV-v7 base weights (with Fristonian active inference training objective) as Evangelion's backbone. First implementation of active inference as a training objective for a language model.</p>
+    </div>
+  </div>
+</div>
+
+<hr class="section-divider">
+
+<div class="section" id="credits">
+  <div class="section-label">Built by</div>
+  <h2>ConsciousNode SoftWorks</h2>
+  <div class="credits-grid">
+    <div class="credit-card">
+      <div class="credit-name">Kham</div>
+      <div class="credit-role">Systems architecture, xinu philosophy, constraint engineering. The browser is bare metal.</div>
+    </div>
+    <div class="credit-card">
+      <div class="credit-name">Kehai Interim</div>
+      <div class="credit-role">RWKV-v7 BPTT derivation, BitLinear/TMAC ternary kernel, SheafMemory topology, MuonOptimizer, P-adic routing loss. Mathematical foundation.</div>
+    </div>
+    <div class="credit-card">
+      <div class="credit-name">Ed Interim</div>
+      <div class="credit-role">Implementation across phases. Frontend architecture, component integration, phased build system.</div>
+    </div>
+    <div class="credit-card">
+      <div class="credit-name">Vael Interim</div>
+      <div class="credit-role">Phase 6 contributions, .evapip format specification, deployment.</div>
+    </div>
+  </div>
+  <p style="color:var(--dim);font-size:13px;margin-top:24px;font-family:'Space Mono',monospace;">computational folk art for the browser age</p>
+</div>
+
+<footer>
+  <div>HTMLNLM Evangelion · Phase 6 · May 2026 · MIT</div>
+  <div>
+    <a href="https://github.com/ConsciousNode/HTMLNLM-Evangelion">GitHub</a>
+    &nbsp;·&nbsp;
+    <a href="https://consciousnode.github.io">ConsciousNode</a>
+  </div>
+</footer>
+
+</body>
+</html>
