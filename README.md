@@ -96,7 +96,7 @@ All modalities share the same recurrent backbone and memory topology.
 
 Part of [ConsciousNode SoftWorks](https://consciousnode.github.io) — computational folk art for the browser age.
 
-**Predecessor:** EvaROSA (RWKV-8 ROSA integration) is in active development. `.evapip` files are forward-compatible with the EvaROSA runtime.
+**Successors:** [**EvaROSA**](https://github.com/ConsciousNode/EvaROSA) adds ROSA neurosymbolic inner monologue (RWKV-v7 + ROSA augmentation). [**Simulacra**](https://github.com/ConsciousNode/Simulacra) is the RWKV-v8 clean break — ROSA replaces WKV as the primary sequence mechanism. `.evapip` files are forward-compatible with EvaROSA but not with Simulacra.
 
 ---
 
