@@ -12,8 +12,13 @@ const noop = () => 0; const ctx = { setInterval: noop, clearInterval: noop, setT
 const M = ctx.M;
 let seed = 3;
 ctx.Math.random = Math.random = () => { seed = (seed * 1103515245 + 12345) & 0x7fffffff; return seed / 0x7fffffff; };
-// STE semantics: backward is the gradient of the float model, so check against a float forward.
-M.BitLinear.prototype.forward = function (x) { const o = new Float64Array(this.outDim); for (let r = 0; r < this.outDim; r++) { let a = 0; for (let i = 0; i < this.inDim; i++) a += this.weight[r * this.inDim + i] * x[i]; o[r] = a; } return o; };
+// Default: STE semantics. The weight gradient is the gradient of the float model, so check every
+// weight against a float forward. TERNARY=1: keep the REAL ternary forward and check everything
+// upstream of the ternary layers (embedding, norms, mixing coefficients). Those must be exact,
+// which only holds if each BitLinear passes back γ·Q(W)ᵀg, the gradient of what actually ran.
+const TERNARY = !!process.env.TERNARY;
+if (!TERNARY) M.BitLinear.prototype.forward = function (x) { const o = new Float64Array(this.outDim); for (let r = 0; r < this.outDim; r++) { let a = 0; for (let i = 0; i < this.inDim; i++) a += this.weight[r * this.inDim + i] * x[i]; o[r] = a; } return o; };
+if (!TERNARY) M.BitLinear.prototype.backward = function (g, x) { const gi = new Float64Array(this.inDim); for (let r = 0; r < this.outDim; r++) { if (!g[r]) continue; for (let i = 0; i < this.inDim; i++) { this.grad[r * this.inDim + i] += g[r] * x[i]; gi[i] += this.weight[r * this.inDim + i] * g[r]; } } return gi; };
 const cfg = { vocab: 20, dim: 12, layers: 2 };
 const m = new M.LanguageModel(cfg);
 for (const b of m.blocks) { for (let i = 0; i < b.W_x_w.weight.length; i++) b.W_x_w.weight[i] *= 0.3; b.mu_r.fill(0.4); b.mu_k.fill(0.6); }
@@ -42,10 +47,11 @@ function check(label, W, G) {
   console.log(`${label.padEnd(16)} cos=${cos.toFixed(4)}  |analytic|/|true|=${ratio.toFixed(4)}  ${ok ? 'ok' : 'FAIL'}`);
 }
 for (const L of [1, 0]) {
-  for (const n of ['W_x_r', 'W_x_k', 'W_x_v', 'W_x_kappa', 'W_x_a', 'W_x_w', 'W_o', 'W_g', 'W_x_rx2', 'W_x_kx2', 'Wr2', 'Wk2', 'Wv2']) check(`L${L}.${n}`, m.blocks[L][n].weight, m.blocks[L][n].grad);
+  if (!TERNARY) for (const n of ['W_x_r', 'W_x_k', 'W_x_v', 'W_x_kappa', 'W_x_a', 'W_x_w', 'W_o', 'W_g', 'W_x_rx2', 'W_x_kx2', 'Wr2', 'Wk2', 'Wv2']) check(`L${L}.${n}`, m.blocks[L][n].weight, m.blocks[L][n].grad);
   for (const mu of ['mu_r', 'mu_k', 'mu_v', 'mu_w']) check(`L${L}.${mu}`, m.blocks[L][mu], m.blocks[L][mu + '_grad']);
   check(`L${L}.ln1.w`, m.blocks[L].ln1.weight, m.blocks[L].ln1.grad_w || m.blocks[L].ln1.gradW || m.blocks[L].ln1.grad);
 }
-check('head', m.head.weight, m.head.grad); check('embedding', m.embedding, m.embGrad);
-console.log(fails ? `\n${fails} FAILED (worst cos ${worst.toFixed(4)})` : `\nALL OK (worst cos ${worst.toFixed(4)})`);
+if (!TERNARY) check('head', m.head.weight, m.head.grad);
+check('embedding', m.embedding, m.embGrad);
+console.log(fails ? `\n${fails} FAILED (worst cos ${worst.toFixed(4)})` : `\nALL OK (worst cos ${worst.toFixed(4)})${TERNARY ? ' — real ternary forward' : ''}`);
 process.exit(fails ? 1 : 0);

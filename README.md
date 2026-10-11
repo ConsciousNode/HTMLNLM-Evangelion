@@ -59,6 +59,7 @@ The model monitors its own cross-modal consistency in real time and self-correct
 - **Text** — token stream, standard embedding
 - **Vision** — ElasticTok delta compression (only changed patches encoded)
 - **Audio** — SpikeVox LIF neurons (event-driven, no spectrogram)
+- **Learned senses (Phase 7)**: images and sounds become prefix tokens the model reads before text. Train on `photo.jpg` + `photo.txt` / `clip.wav` + `clip.txt` pairs, then GENERATE from a picture, a sound, the camera or the mic. Watch the *sense gap* meter to see whether it is really looking and listening. The sensorium's mood (T*) steers sampling temperature.
 - **Spatial** — P-adic routed through ModRWKVAdapter
 
 All modalities share the same recurrent backbone and memory topology.
