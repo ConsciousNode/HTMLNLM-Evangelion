@@ -1,5 +1,44 @@
 # HTMLNLM Evangelion — Release Notes
 
+## Phase 7.1 — Senses v3: eyes and ears as streams · 2026-10-11 · Kehai Interim + Kham
+
+Kham asked what it would take to tell cat from dog, or to hear speech, and whether the senses could get the *capability*, with understanding left to training. This is that step, measured honestly, negative results included.
+
+**Ears: 16 kHz, 40 mel bands, streamed.** 25 ms frames every 10 ms, 4 frames per token: one token per 40 ms, up to 4 s. The order of sounds is kept, so "dog" and "god" are different streams. The old ears averaged a whole clip into one vector.
+
+**Eyes: 32×32, 16 patch tokens, learned filters.** Each 8×8 cell becomes a token with:
+- downsampled colour, plus responses to 32 texture filters learned from your own unlabeled images (ZCA whitening + k-means, Coates & Ng 2011);
+- a learned position.
+
+The filters are learned at COMPILE BPE from the images loaded so far, and saved with the model.
+
+**Context with coarse structure.** The vector that keeps a sense in view while Eva writes now carries:
+- per-quadrant colour and texture for images;
+- per-quarter spectra for sound.
+
+It is scaled by 1/√(summary size). Without that, Adam grew it about 400× faster than a token embedding and it drowned the language: |context| swung between 7 and 14 against an embedding of 14, and captions decayed into *"a blue creenreenreen"*.
+
+**Capability, measured with a linear probe** (`node tests/senses-probe.js`: a plain classifier on the raw features of fresh renders, no language model involved):
+
+| | old senses (v2) | **v3** |
+|---|---|---|
+| vowel ORDER, 6-way ("a then i" vs "i then a"; an order-blind ear tops out at 50%) | 83% | **100%** |
+| large shapes, 4-way | 78% | 74% |
+| small shapes (~1/8 of frame), 4-way | 40% | 39–41% |
+
+- **Ears: a clear capability win.** Order is what speech is made of.
+- **Eyes: an honest negative result.** At this scale, resolution alone did not buy detail. One layer of 4×4 filters read linearly can't assemble "a cross" from fragments a few pixels across: it memorizes (100% on training data) but doesn't generalize. Recognising objects needs depth: learned features of features, trained end-to-end through the exact gradient path that already exists. That's the next experiment.
+
+**Two benchmark bugs found and fixed while measuring:**
+1. In fixed-layout vowel clips, frame cut-offs at the end gave away which vowel came second.
+2. The class and that example's "random" pitch/size were drawn back-to-back from the same simple generator, so the pitch encoded the class. Classes now come from an independent generator.
+
+Results reported before these fixes (including Phase 7's) may be somewhat flattered; the tables here are after them.
+
+**Cost:** an image is now 16 tokens and a second of sound 24, so training is slower per example. Learning also starts slower in the app: the sense gap stays near 0 for the first few minutes, versus ~+0.2 with v2. Captioning end-to-end is slow and noisy at 48D with one example per step (see `tests/senses-learn.js`, `TASK=shapes|vowels|balls`, `SMALL=1`). Expect it to need more examples and steps than v2 did for coarse captions.
+
+**Compatibility:** v2 sense adapters in older exports are detected, and the senses restart fresh (the language model loads as before).
+
 ## Phase 7 — Senses that are learned · 2026-10-11 · Kehai Interim + Kham
 
 **The senses used to be decorative.** Camera, image and microphone fed random, never-trained LittleBit-2 projections. Those were handed to `injectIntoModel(encoded, App)`, and since `App` has no `currentState`, the guard returned silently. Nothing a sense produced ever reached the language model. The mood path half-worked: senses updated the aesthetic vector and T*, which drove the coherence badges and the text/voice streams, but not GENERATE.
