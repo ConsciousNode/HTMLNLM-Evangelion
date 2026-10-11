@@ -1,5 +1,17 @@
 # HTMLNLM Evangelion — Release Notes
 
+## Phase 6.1 — 2026-10-11 · Kehai Interim
+
+**Backward pass fixed and verified.** The same plumbing fixes as HTMLNLM v1.1, plus one Evangelion-specific bug.
+
+- **Residual gradient restored.** The block returned only the `ln1` path and dropped the residual.
+- **`ln2.backward()` result now used.** The channel mix's gradient never reached the time mix.
+- **Embedding gradient order fixed.** It was taken before `ln_in.backward`, at ~2% of its true size.
+- **Token-shift BPTT added.** `prevX`/`prevX2` gradients now reach the previous timestep.
+- **PoST clamp mismatch fixed (Evangelion only).** The forward clamps `w_proj + log_w_bias − 0.5`, but the backward tested `w_proj − 0.5`. Channels pinned by the PoST bias were still receiving decay gradient as if they weren't clamped.
+
+Every weight, `mu` and the embedding match finite differences over a 3-step sequence (worst cosine 0.9989). Test: `node tests/gradcheck.js`, zero dependencies.
+
 ## Phase 6 — May 2026
 
 **First public release.**
