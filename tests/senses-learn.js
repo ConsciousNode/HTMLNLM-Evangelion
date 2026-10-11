@@ -19,7 +19,7 @@ ctx.Math.random = Math.random = rnd;
 
 const COLORS = { red: [220, 40, 40], green: [40, 200, 60], blue: [50, 80, 230], yellow: [230, 220, 40] };
 const SIDES = ['left', 'right'];
-const vClasses = []; for (const c of Object.keys(COLORS)) for (const s of SIDES) vClasses.push({ c, s, text: process.env.ORDER === 'first' ? `${c} ${s}: a ball.` : `a ${c} ball on the ${s}.` });
+const vClasses = []; for (const c of Object.keys(COLORS)) for (const s of SIDES) vClasses.push({ c, s, text: process.env.ORDER === 'first' ? `${c} ${s}: a ball.` : process.env.ORDER === 'sidefirst' ? `${s}: a ${c} ball.` : `a ${c} ball on the ${s}.` });
 const renderImg = ({ c, s }) => { const W = 48, H = 36, d = new Uint8Array(W * H * 4), col = COLORS[c];
   const cx = (s === 'left' ? 0.25 : 0.75) * W + (rnd() - 0.5) * 8, cy = H * (0.35 + rnd() * 0.3), r = 7 + rnd() * 4, bg = 30 + rnd() * 50;
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) { const p = (y * W + x) * 4, inside = (x - cx) ** 2 + (y - cy) ** 2 < r * r;
@@ -68,9 +68,9 @@ function evaluate() {
   console.log(`train caption loss (EMA) ${run.toFixed(3)}`);
   // let it caption things it has never seen (greedy, no prompt — exactly what GENERATE does with a sense)
   for (const md of mods) for (const cl of md.classes.slice(0, md.name === 'vision' ? 8 : 4)) {
-    const pre = adapters[md.name].prefix(md.render(cl)); let st = model.getEmptyState(), r, out = [];
+    const f = md.render(cl), pre = adapters[md.name].prefix(f), cv = adapters[md.name].context ? adapters[md.name].context(f) : null; let st = model.getEmptyState(), r, out = [];
     for (const v of pre) { r = model.forwardVec(v, st); st = r.state; }
-    for (let i = 0; i < 30; i++) { let b = 0; for (let j = 1; j < 256; j++) if (r.logits[j] > r.logits[b]) b = j; out.push(b); if (b === 46) break; r = model.forward(b, st); st = r.state; }
+    for (let i = 0; i < 30; i++) { let b = 0; for (let j = 1; j < 256; j++) if (r.logits[j] > r.logits[b]) b = j; out.push(b); if (b === 46) break; r = model.forward(b, st, cv); st = r.state; }
     const said = new TextDecoder().decode(Uint8Array.from(out));
     console.log(`  ${md.name} ${JSON.stringify(cl.text).padEnd(28)} → ${JSON.stringify(said)}${said === cl.text ? '  ✓' : ''}`);
   }

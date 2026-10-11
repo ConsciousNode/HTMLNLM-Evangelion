@@ -32,12 +32,14 @@ const cfg = { vocab: 20, dim: 12, layers: 2 };
 const m = new M.LanguageModel(cfg);
 for (const b of m.blocks) { for (let i = 0; i < b.W_x_w.weight.length; i++) b.W_x_w.weight[i] *= 0.3; b.mu_r.fill(0.4); b.mu_k.fill(0.6); }
 const ad = new M.SenseAdapter('vision', 10, cfg.dim, 3);
+for (let i = 0; i < ad.C.length; i++) ad.C[i] = Math.sin(i * 0.37) * 0.2;   // non-zero so the context path is exercised
 const feats = Float64Array.from({ length: 10 }, (_, i) => Math.sin(i * 1.7) * 0.8), caption = [4, 11, 2, 17];
+for (let n = 0; n < 30; n++) ad.observe(Float64Array.from({ length: 10 }, () => Math.random() * 2 - 1));   // warm the running stats (one sample alone standardizes to 0)
 const tr = new M.Trainer(m, null);
 const ce = (lg, t) => { let mx = -1e9; for (const v of lg) mx = Math.max(mx, v); let s = 0; for (const v of lg) s += Math.exp(v - mx); return -(lg[t] - mx - Math.log(s)); };
-const loss = () => { const pre = ad.prefix(feats); let st = m.getEmptyState(), r, L = 0;
+const loss = () => { const pre = ad.prefix(feats), cv = ad.context(feats); let st = m.getEmptyState(), r, L = 0;
   for (const v of pre) { r = m.forwardVec(v, st); st = r.state; }
-  for (let t = 0; t < caption.length; t++) { L += ce(r.logits, caption[t]); if (t < caption.length - 1) { r = m.forward(caption[t], st); st = r.state; } } return L; };
+  for (let t = 0; t < caption.length; t++) { L += ce(r.logits, caption[t]); if (t < caption.length - 1) { r = m.forward(caption[t], st, cv); st = r.state; } } return L; };
 m.zeroGrad(); m.embGrad.fill(0); ad.zeroGrad();
 const Lan = tr.trainPaired(ad, feats, caption);
 const Lfd = loss() / caption.length, ok3 = Math.abs(Lan - Lfd) < 1e-5;   // trainer adds 1e-8 inside its log
@@ -52,6 +54,7 @@ function check(label, W, G) {
 }
 check('adapter.W', ad.W, ad.gW);
 check('adapter.b', ad.b, ad.gb);
+check('adapter.C (context)', ad.C, ad.gC);
 check('embedding', m.embedding, m.embGrad);
 check('block0.W_o', m.blocks[0].W_o.weight, m.blocks[0].W_o.grad);
 check('block1.W_x_k', m.blocks[1].W_x_k.weight, m.blocks[1].W_x_k.grad);

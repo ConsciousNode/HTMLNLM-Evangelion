@@ -4,7 +4,7 @@
 
 **The senses used to be decorative.** Camera, image and microphone fed random, never-trained LittleBit-2 projections. Those were handed to `injectIntoModel(encoded, App)`, and since `App` has no `currentState`, the guard returned silently. Nothing a sense produced ever reached the language model. The mood path half-worked: senses updated the aesthetic vector and T*, which drove the coherence badges and the text/voice streams, but not GENERATE.
 
-**Now senses are prefix tokens.** A sense becomes K=4 vectors in embedding space that the RWKV reads *before* the text, exactly like tokens. Train on pairs, and the caption is literally "what comes after seeing/hearing this":
+**Now senses are prefix tokens plus a context.** A sense becomes K=4 vectors in embedding space that the RWKV reads *before* the text, exactly like tokens. It also contributes a **context vector** that is added to every token's input while the sense is present, so what the model perceives stays in view instead of having to be remembered. Train on pairs, and the caption is literally "what comes after seeing/hearing this":
 
 - **Paired corpus.** Drop `photo.jpg` + `photo.txt`, `clip.wav` + `clip.txt` (matched by name) into the new SENSES panel. Captions join the BPE vocabulary, and a slider sets the share of training steps that use pairs.
 - **SenseAdapter.** Features are standardized with running statistics, then projected to K prefixes by a trainable linear map (Adam, 0.1× the model LR). Its gradient comes from the one that already flows back to the embedding: `LanguageModel.forwardVec()` takes a vector instead of a token id, and `backward()` returns its gradient. Exact against finite differences (`node tests/senses.js`).
@@ -12,15 +12,24 @@
   - Images: 8×8 color grid, 8×8 edge map, and a 16-number pre-attentive saliency block (what stands out from the average color, and where).
   - Audio: 24 log-spaced band energies (mean and spread over time), loudness, zero-crossings, brightness, flux, onset rate and duration.
 - **Sense gap meter.** Caption loss with a wrong sense minus with the right one. Above 0 means the model is actually looking/listening.
-- **GENERATE can start from a sense:** an image or sound file, the live camera frame, or the last ~2 s of microphone. With no prompt it captions what it perceives.
+- **GENERATE can start from a sense:** an image or sound file, the live camera frame, or the last ~2 s of microphone. With no prompt it captions what it perceives. With the camera or mic live, the context is refreshed every 8 tokens, so the scene keeps steering the words as they're written.
 - **Mood path, fixed.** The sensorium's semantic temperature T* now steers sampling temperature in GENERATE (×0.7 to ×1.3, toggle in the sampler). The dead state-nudge was removed.
 - **Saved in exports**, so adapters and their statistics survive save/load.
 
 **Measured** (`node tests/senses-learn.js`, synthetic paired corpus, 48D×2L, evaluated on fresh renders the model never saw):
-- **Audio:** picks the right caption for 100% of new sounds (chance 25%), and, greedy with no prompt, says *"a high steady whistle."* and *"high beeps, on and off."* word for word.
-- **Vision:** names the ball's color correctly for 6 of 8 new images (*"a red ball…", "a blue ball…"*). It **has not learned left/right**: it always says "left". The side word comes ~15 characters after the sense, and carrying that bit that far through the state is the open problem. It picks the right caption out of 8 ~46% of the time (chance 12.5%).
+| | prefix only | **prefix + context** |
+|---|---|---|
+| vision, exact captions of new images (greedy, no prompt) | 2 of 8, always "left" | **6 of 8, left/right 8 of 8** |
+| vision, picks the right caption of 8 (chance 12.5%) | ~46% | **75–88%** |
+| audio, exact captions of new sounds | 2 of 4 | **3 of 4** |
+| audio, right caption by step 200 (chance 25%) | 42% | **67%** |
+
+With context it says *"a red ball on the right."*, *"a blue ball on the left."*, *"low beeps, on and off."*, *"a high steady whistle."* word for word about things it never saw or heard. Its misses: green read as yellow twice (they share a strong green channel in these renders), and a low hum called "a low steady whistle".
+
+**Why the context was needed (diagnosed, not guessed).** With the prefix alone, vision learned color but never left/right. Swapping the caption order ("left: a red ball.") flipped it: left/right perfect, color lost. Whichever detail sat furthest from the sense faded, because the model *sees* both and the memory is what runs out. The context vector keeps the sense present for the whole caption.
 
 **What it took** (each step measured, not guessed):
+0. **A context vector**, zero at init so it adds no noise until it proves useful (see above).
 1. **Feature standardization.** Without it, the background shared by every image dominates W·f, and after LayerNorm every image looked like the same prefix.
 2. **A gentler adapter learning rate.** Adam moves every weight ~LR per step whatever the gradient's size. A wandering prefix teaches the model to ignore it.
 3. **The fix below.** Without it, the base model couldn't even memorize the captions.

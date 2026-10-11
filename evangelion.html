@@ -877,7 +877,7 @@ Assistant: Let me think step-by-step.</textarea>
             <option value="mic">live microphone (last ~2 s)</option>
           </select>
           <input type="file" id="inf-sense-file" accept="image/*,audio/*" style="display:none; margin-top:6px;" onchange="setInferenceSenseFile(this.files[0])">
-          <small id="inf-sense-status" style="opacity:0.6;">The model reads the sense first, then your prompt — like a caption.</small>
+          <small id="inf-sense-status" style="opacity:0.6;">The model reads the sense first, then your prompt, like a caption, and the sense stays in view while it writes. Live camera/mic keep updating as it writes.</small>
         </div>
         <div class="control-group">
           <label style="display:flex; gap:8px; align-items:center;"><input type="checkbox" id="inf-mood" checked> <span>Mood steers temperature (T* from the sensorium)</span></label>
@@ -2016,10 +2016,13 @@ class LanguageModel {
     return this.blocks.map(() => ({ prevX: null, prevX2: null, num: null, den: null }));
   }
 
-  forward(tokenId, state) {
+  // ctxVec (optional, Senses v2): a sense's context vector, added to the token's input while that
+  // sense is present, so what the model perceives stays in view instead of having to be remembered.
+  forward(tokenId, state, ctxVec = null) {
     const id = (tokenId >= 0 && tokenId < this.cfg.vocab) ? tokenId : 0;
     const x = new Float32Array(this.cfg.dim);
     for (let i = 0; i < this.cfg.dim; i++) x[i] = this.embedding[id * this.cfg.dim + i];
+    if (ctxVec) for (let i = 0; i < this.cfg.dim; i++) x[i] += ctxVec[i];
     return this._forwardX(x, state, id);
   }
 
@@ -2215,6 +2218,9 @@ class SenseAdapter {
     this.W = new Float32Array(n); for (let i = 0; i < n; i++) this.W[i] = (Math.random() * 2 - 1) * sw;
     this.b = new Float32Array(K * dim); for (let i = 0; i < this.b.length; i++) this.b[i] = (Math.random() * 2 - 1) * sb;
     this.gW = new Float32Array(n); this.gb = new Float32Array(K * dim);
+    // context map C (dim × F), zero at init: the sense starts out adding nothing to the text
+    // stream and grows in only as fast as it proves useful
+    this.C = new Float32Array(dim * F); this.gC = new Float32Array(dim * F); this.mC = new Float32Array(dim * F); this.vC = new Float32Array(dim * F);
     this.mW = new Float32Array(n); this.vW = new Float32Array(n); this.mb = new Float32Array(K * dim); this.vb = new Float32Array(K * dim);
     this.t = 0; this.trainedSteps = 0;
   }
@@ -2240,6 +2246,14 @@ class SenseAdapter {
     }
     return out;
   }
+  context(fRaw) {                       // c = C·x̂, added to every token's input while the sense is present
+    const f = this.norm(fRaw), c = new Float32Array(this.dim);
+    for (let d = 0; d < this.dim; d++) { const row = d * this.F; let s = 0; for (let i = 0; i < this.F; i++) s += this.C[row + i] * f[i]; c[d] = s; }
+    return c;
+  }
+  accumulateContext(gradVec, xhat) {    // gradVec = dL/d(input of a token step); xhat = norm(f)
+    for (let d = 0; d < this.dim; d++) { const g = gradVec[d]; if (g === 0) continue; const row = d * this.F; for (let i = 0; i < this.F; i++) this.gC[row + i] += g * xhat[i]; }
+  }
   accumulate(k, gradVec, fRaw) {        // gradVec = dL/d(prefix_k)
     const f = this.norm(fRaw);
     for (let d = 0; d < this.dim; d++) {
@@ -2252,10 +2266,10 @@ class SenseAdapter {
   step(lr, b1 = 0.9, b2 = 0.999, eps = 1e-8, wd = 0.01) {
     this.t++; const c1 = 1 - Math.pow(b1, this.t), c2 = 1 - Math.pow(b2, this.t);
     const upd = (P, G, M, V, decay) => { for (let i = 0; i < P.length; i++) { const g = G[i]; M[i] = b1 * M[i] + (1 - b1) * g; V[i] = b2 * V[i] + (1 - b2) * g * g; P[i] -= lr * (M[i] / c1 / (Math.sqrt(V[i] / c2) + eps) + decay * P[i]); G[i] = 0; } };
-    upd(this.W, this.gW, this.mW, this.vW, wd); upd(this.b, this.gb, this.mb, this.vb, 0);
+    upd(this.W, this.gW, this.mW, this.vW, wd); upd(this.b, this.gb, this.mb, this.vb, 0); upd(this.C, this.gC, this.mC, this.vC, wd);
     this.trainedSteps++;
   }
-  zeroGrad() { this.gW.fill(0); this.gb.fill(0); }
+  zeroGrad() { this.gW.fill(0); this.gb.fill(0); this.gC.fill(0); }
 }
 
 /* ╔══════════════════════════════════════════════════════════════════╗
@@ -3910,10 +3924,11 @@ class Trainer {
     adapter.observe(features);
     const pre = adapter.prefix(features), K = pre.length, T = tokens.length;
     if (T < 1) return 0;
+    const ctxv = adapter.context(features), xhat = adapter.norm(features);
     let state = this.model.getEmptyState();
     const acts = [];
     for (let i = 0; i < K + T - 1; i++) {                 // the last caption token is only a target
-      const r = i < K ? this.model.forwardVec(pre[i], state) : this.model.forward(tokens[i - K], state);
+      const r = i < K ? this.model.forwardVec(pre[i], state) : this.model.forward(tokens[i - K], state, ctxv);
       acts.push(r); state = r.state;
     }
     let total = 0, stateGrads = this.model.blocks.map(() => ({ num: new Float32Array(this.model.cfg.dim), den: new Float32Array(this.model.cfg.dim) }));
@@ -3924,17 +3939,18 @@ class Trainer {
       const res = this.model.backward(g, acts[i].caches, stateGrads);
       stateGrads = res.gradStatesOut;
       if (i < K) adapter.accumulate(i, res.gradIn, features);
+      else adapter.accumulateContext(res.gradIn, xhat);
     }
     return total / T;
   }
 
   // caption loss given a sense (no gradients): used by the sense-gap meter
   captionLoss(adapter, features, tokens) {
-    const pre = adapter.prefix(features); let state = this.model.getEmptyState(), r = null, total = 0;
+    const pre = adapter.prefix(features), ctxv = adapter.context(features); let state = this.model.getEmptyState(), r = null, total = 0;
     for (const v of pre) { r = this.model.forwardVec(v, state); state = r.state; }
     for (let t = 0; t < tokens.length; t++) {
       total += this.computeLossAndGrad(r.logits, tokens[t]).loss;
-      if (t < tokens.length - 1) { r = this.model.forward(tokens[t], state); state = r.state; }
+      if (t < tokens.length - 1) { r = this.model.forward(tokens[t], state, ctxv); state = r.state; }
     }
     return total / tokens.length;
   }
@@ -5267,7 +5283,7 @@ function loadSenseAdapters(saved, isBase64) {
   const ld = buf => new Float32Array(isBase64 ? base64ToBuffer(buf) : buf);
   for (const [mod, d] of Object.entries(saved)) {
     const a = App.senses[mod]; if (!a || d.F !== a.F || d.K !== a.K) { sysLog(`Sense adapter '${mod}' shape mismatch, re-initialised.`, 'warn'); continue; }
-    a.W = ld(d.W); a.b = ld(d.b); a.mu = ld(d.mu); a.var = ld(d.var); a.nObs = d.nObs || 0; a.trainedSteps = d.trainedSteps || 0;
+    a.W = ld(d.W); a.b = ld(d.b); if (d.C) a.C = ld(d.C); a.mu = ld(d.mu); a.var = ld(d.var); a.nObs = d.nObs || 0; a.trainedSteps = d.trainedSteps || 0;
   }
   sysLog('Sense adapters restored.', 'ok');
 }
@@ -5371,10 +5387,12 @@ async function startInference() {
   // Senses v2: read the chosen sense first (learned prefix), then the prompt.
   // With no prompt, the first token is sampled straight from what the model expects after the sense
   // (that is how captions were trained: no separator between the sense and the text).
-  let pendingLogits = null;
+  let pendingLogits = null, senseCtx = null, senseAd = null;
+  const liveSense = ['camera', 'mic'].includes(document.getElementById('inf-sense')?.value);
   try {
     const sense = await getInferenceSense();
     if (sense && App.senses && App.senses[sense.modality]) {
+      senseAd = App.senses[sense.modality]; senseCtx = senseAd.context(sense.features);
       for (const v of App.senses[sense.modality].prefix(sense.features)) { const r = App.model.forwardVec(v, state); state = r.state; pendingLogits = r.logits; }
       if (rawPrompt) pendingLogits = null;   // with a prompt, continue from the prompt as usual
       outBox.innerHTML = `<span style="opacity:0.5">[${sense.modality}] ${prompt}</span>`;
@@ -5388,13 +5406,15 @@ async function startInference() {
     sysLog(`Mood: T* ${tStar.toFixed(2)} → temperature ${t.toFixed(2)} × ${(0.7 + 0.6 * tStar).toFixed(2)} = ${tEff.toFixed(2)}`, 'info');
   }
 
-  for (let i = 0; i < ids.length - 1; i++) state = App.model.forward(ids[i], state).state;
+  for (let i = 0; i < ids.length - 1; i++) state = App.model.forward(ids[i], state, senseCtx).state;
 
   let buffer = '';
   const recentTokens = [...ids];
   try {
     for (let i = 0; i < max && activeInference; i++) {
-      const res = pendingLogits ? { logits: pendingLogits, state } : App.model.forward(lastId, state);
+      // live camera/mic: refresh what the model is perceiving every 8 tokens, so the scene keeps steering the words
+      if (liveSense && senseAd && i > 0 && i % 8 === 0) { try { const s2 = await getInferenceSense(); if (s2 && App.senses[s2.modality] === senseAd) senseCtx = senseAd.context(s2.features); } catch (e) {} }
+      const res = pendingLogits ? { logits: pendingLogits, state } : App.model.forward(lastId, state, senseCtx);
       pendingLogits = null;
       state = res.state;
       App.currentState = state;
@@ -5607,7 +5627,7 @@ async function exportModel() {
     state.senses = {};
     for (const [mod, a] of Object.entries(App.senses)) state.senses[mod] = {
       F: a.F, K: a.K, nObs: a.nObs, trainedSteps: a.trainedSteps,
-      W: await bufferToBase64Async(a.W.buffer), b: await bufferToBase64Async(a.b.buffer),
+      W: await bufferToBase64Async(a.W.buffer), b: await bufferToBase64Async(a.b.buffer), C: await bufferToBase64Async(a.C.buffer),
       mu: await bufferToBase64Async(a.mu.buffer), var: await bufferToBase64Async(a.var.buffer) };
   }
 
